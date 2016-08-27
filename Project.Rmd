@@ -1,0 +1,100 @@
+---
+title: "Practical Machine Learning Course Project"
+author: "Swagato Acharjee"
+date: "August 27, 2016"
+output:
+  html_document:
+    toc: yes
+---
+```{r init, echo = T, message = F,results='hide',warning=FALSE}
+library(caret)
+library(data.table)
+library(curl)
+set.seed(12345)
+library(randomForest)
+library(kernlab)
+
+setwd("C:/Work/Coursera/PracticalMachineLearning")
+```
+
+### Load data 
+```{r loaddata, eval=T,results='asis'}
+# load data
+training <- read.csv("pml-training.csv",hea=T,row.names=1)
+testing <- read.csv("pml-testing.csv",hea=T,row.names=1)
+#
+print(dim(training))
+print(dim(testing))
+
+```
+
+### Preliminary analysis
+The training set has `r nrow(training)` samples and `r ncol(training)` columns. The column `classe` is the one that needs to be predicted. 
+
+### Clean data 
+We remove near zero features and those with more than 90% missing values
+```{r cleandata, eval = T,results='asis'}
+
+# remove near zero features using the nearZeroVar function in the caret package
+nzv <- nearZeroVar(training)
+training <- training[, -c(nzv) ]
+testing <- testing[, -c(nzv) ]
+
+
+# remove features with NAs more than cutoff
+na.cut<-0.9
+# remove variables with more than 90% missing values
+badcols <- colSums(is.na(training))/nrow(training) > na.cut
+
+training<-training[,!badcols]
+testing<-testing[,!badcols]
+print(dim(training))
+```
+
+After our cleaning process we are left with 57 features.
+
+### Model evaluation
+We will evaluate two  machine learning techniques for the data.
+1. Random Forests
+2. Support vector machines
+
+Based on model accuracy we'd select the best method and use it for evaluating the test data.
+
+
+#### Random forest with 10 fold cross validation
+```{r rf, eval = F}
+
+randFFit <- train(classe ~ ., method = "rf", data = training, importance = T, 
+                  trControl = trainControl(method = "cv", number = 10))
+# save model 
+save(randFFit,file="randFFit")
+```
+```{r randplot, eval = T}
+load("C:/Work/Coursera/PracticalMachineLearning/randFFit")
+plot(randFFit)
+```
+
+
+
+#### SVM with 10 fold cross validation
+```{r svm, eval = F}
+svmFit <- train(classe ~ ., method = "svmRadial",
+                data = training, verbose = F,  importance = T,
+                trControl = trainControl(method = "cv", number = 10))
+## save model
+save(svmFit,file="svmFit")
+```
+```{r svmplot, eval = T}
+load("C:/Work/Coursera/PracticalMachineLearning/svmFit")
+plot(svmFit)
+```
+
+### Analysis of results
+The random forest model has an  accuracy of `0.99` while the SVM model has an accuracy of `0.94`. We select the  random forest model for our prediction
+
+### Prediction results using random forests algorithm
+```{r pred, eval = T}
+(predictionRF <- as.character(predict(randFFit, testing)))
+```
+
+
